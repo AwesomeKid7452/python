@@ -22,7 +22,7 @@ class InvoicePDF(FPDF):
         for line in place.split('\n'):
             self.set_xy(10, y_place)
             self.cell(0, 10, line, ln=True)
-            y_place += 7  # Adjust spacing between lines
+            y_place += 4  # Adjust spacing between lines
 
         self.set_font('Futura', 'B', 13)
         self.set_xy(160, 51)
@@ -111,10 +111,29 @@ class InvoiceApp(tk.Tk):
         quantity_entry = tk.Entry(item_window)
         quantity_entry.pack()
 
+        def validate_numeric_input(input_value):
+            try:
+                float(input_value)
+                return True
+            except ValueError:
+                return False
+
         def add_to_items():
             description = description_entry.get()
-            price = float(price_entry.get())
-            quantity = int(quantity_entry.get())
+            price = price_entry.get()
+            quantity = quantity_entry.get()
+
+            # Validate that price and quantity are numeric and not empty
+            if not description or not price or not quantity:
+                messagebox.showerror("Error", "Please fill in all item fields.")
+                return
+            
+            if not validate_numeric_input(price) or not validate_numeric_input(quantity):
+                messagebox.showerror("Error", "Price and quantity must be numeric values.")
+                return
+
+            price = float(price)
+            quantity = int(quantity)
 
             item = {'description': description, 'price': price, 'quantity': quantity}
             self.items.append(item)
@@ -131,14 +150,21 @@ class InvoiceApp(tk.Tk):
         place = self.place_text.get("1.0", tk.END).strip()  # Get multi-line text
         reference = self.reference_entry.get()
 
+        # Check that all the main fields are filled
+        if not date or not name or not place or not reference:
+            messagebox.showerror("Error", "Please fill in all fields.")
+            return
+
+        if not self.items:
+            messagebox.showerror("Error", "Please add at least one item.")
+            return
+
         output_file = filedialog.asksaveasfilename(defaultextension=".pdf", title="Save Invoice As")
 
-        if output_file and self.items:
+        if output_file:
             create_invoice(date, name, place, reference, self.items, self.total_amount, output_file)
             messagebox.showinfo("Success", "Invoice generated successfully!")
-            self.reset_app()  # Reset the app fields after generating the invoice
-        else:
-            messagebox.showerror("Error", "Please fill all fields and add at least one item.")
+            self.reset_app()
 
     def reset_app(self):
         """Clear all fields and reset the item list and total amount."""
