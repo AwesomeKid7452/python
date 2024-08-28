@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from fpdf import FPDF
+from datetime import datetime
+import calendar
 
 class InvoicePDF(FPDF):
     def __init__(self, background_image='template.png'):
@@ -78,7 +80,7 @@ class InvoiceApp(tk.Tk):
         self.name_entry.pack()
 
         tk.Label(self, text="Place (multi-line)").pack()
-        self.place_text = tk.Text(self, height=4)  # Multi-line text box for place
+        self.place_text = tk.Text(self, height=4)
         self.place_text.pack()
 
         tk.Label(self, text="Invoice Reference").pack()
@@ -87,12 +89,38 @@ class InvoiceApp(tk.Tk):
 
         tk.Button(self, text="Add Item", command=self.add_item).pack()
 
-        # Display added items
         self.items_listbox = tk.Listbox(self)
         self.items_listbox.pack()
 
-        # Generate PDF button
         tk.Button(self, text="Generate Invoice", command=self.generate_invoice).pack()
+
+    def validate_date(self, date_text):
+        try:
+            date_text = self.date_entry.get()
+            # Try to parse the date
+            date_obj = datetime.strptime(date_text, "%d/%m/%Y")
+            
+            # Extract day, month, and year
+            day = date_obj.day
+            month = date_obj.month
+            year = date_obj.year
+            
+            # Check if the day is valid for the given month and year
+            if day > calendar.monthrange(year, month)[1]:
+                raise ValueError("Invalid day for the given month")
+            
+            # All checks passed
+            return True
+        except ValueError as e:
+            # If any of the validations fail, return False
+            print(f"Date validation error: {e}")
+            return False
+
+    def generate_invoice(self):
+        date = self.date_entry.get()
+        if not self.validate_date(date):
+            messagebox.showerror("Error", "Invalid date format. Please enter the date in dd/mm/yyyy format.")
+            return
 
     def add_item(self):
         item_window = tk.Toplevel(self)
@@ -111,12 +139,12 @@ class InvoiceApp(tk.Tk):
         quantity_entry = tk.Entry(item_window)
         quantity_entry.pack()
 
-        def validate_numeric_input(input_value):
-            try:
-                float(input_value)
-                return True
-            except ValueError:
-                return False
+        # Registering the validation functions
+        validate_numeric = (item_window.register(self.validate_numeric_input), '%P')
+
+        # Adding validation to Price and Quantity fields
+        price_entry.config(validate="key", validatecommand=validate_numeric)
+        quantity_entry.config(validate="key", validatecommand=validate_numeric)
 
         def add_to_items():
             description = description_entry.get()
@@ -128,10 +156,6 @@ class InvoiceApp(tk.Tk):
                 messagebox.showerror("Error", "Please fill in all item fields.")
                 return
             
-            if not validate_numeric_input(price) or not validate_numeric_input(quantity):
-                messagebox.showerror("Error", "Price and quantity must be numeric values.")
-                return
-
             price = float(price)
             quantity = int(quantity)
 
@@ -143,6 +167,13 @@ class InvoiceApp(tk.Tk):
             item_window.destroy()
 
         tk.Button(item_window, text="Add", command=add_to_items).pack()
+
+    def validate_numeric_input(self, input_value):
+        # Allow only numeric values and empty input
+        if input_value == "" or input_value.isnumeric() or input_value.replace('.', '', 1).isdigit():
+            return True
+        else:
+            return False
 
     def generate_invoice(self):
         date = self.date_entry.get()
